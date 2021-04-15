@@ -1,12 +1,20 @@
 #include "parse.h"
 
+#define default_header_capacity 16
+
 /**
 * Given a char buffer returns the parsed request headers
 */
-Request * parse(char *buffer, int size, int socketFd) {
-  //Differant states in the state machine
-	enum {
-		STATE_START = 0, STATE_CR, STATE_CRLF, STATE_CRLFCR, STATE_CRLFCRLF
+Request *parse(char *buffer, int size, int socketFd)
+{
+	//Differant states in the state machine
+	enum
+	{
+		STATE_START = 0,
+		STATE_CR,
+		STATE_CRLF,
+		STATE_CRLFCR,
+		STATE_CRLFCRLF
 	};
 
 	int i = 0, state;
@@ -16,7 +24,8 @@ Request * parse(char *buffer, int size, int socketFd) {
 	memset(buf, 0, 8192);
 
 	state = STATE_START;
-	while (state != STATE_CRLFCRLF) {
+	while (state != STATE_CRLFCRLF)
+	{
 		char expected = 0;
 
 		if (i == size)
@@ -25,7 +34,8 @@ Request * parse(char *buffer, int size, int socketFd) {
 		ch = buffer[i++];
 		buf[offset++] = ch;
 
-		switch (state) {
+		switch (state)
+		{
 		case STATE_START:
 		case STATE_CRLF:
 			expected = '\r';
@@ -43,23 +53,31 @@ Request * parse(char *buffer, int size, int socketFd) {
 			state++;
 		else
 			state = STATE_START;
-
 	}
 
-    //Valid End State
-	if (state == STATE_CRLFCRLF) {
-		Request *request = (Request *) malloc(sizeof(Request));
-        request->header_count=0;
-        //TODO You will need to handle resizing this in parser.y
-        request->headers = (Request_header *) malloc(sizeof(Request_header)*1);
+	//Valid End State
+	if (state == STATE_CRLFCRLF)
+	{
+		Request *request = (Request *)malloc(sizeof(Request));
+		request->header_count = 0;
+		//TODO You will need to handle resizing this in parser.y
+		request->header_capacity = default_header_capacity;
+		request->headers = (Request_header *)malloc(sizeof(Request_header) * request->header_capacity);
 		set_parsing_options(buf, i, request);
 
-		if (yyparse() == SUCCESS) {
-            return request;
+		if (yyparse() == SUCCESS)
+		{
+			return request;
+		}
+		else
+		{
+			free(request->headers);
+			request->headers = NULL;
+			free(request);
+			request = NULL;
 		}
 	}
-    //TODO Handle Malformed Requests
-    printf("Parsing Failed\n");
+	//TODO Handle Malformed Requests
+	printf("Parsing Failed\n");
 	return NULL;
 }
-

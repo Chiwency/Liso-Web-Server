@@ -16,7 +16,7 @@
 
 
 /* Define LEXDEBUG to enable debug messages for this lex file */
-#define LEXDEBUG
+//#define LEXDEBUG
 #ifdef LEXDEBUG
 #include <stdio.h>
 #define LPRINTF(...) printf(__VA_ARGS__)
@@ -69,7 +69,7 @@ extern int parsing_offset;	/* Current offset in the buffer */
  * ctl             [\x0-\x1f\x7f]
  * upalpha         [A-Z]
  * loalpha         [a-z]
- * alpha	       [A-Za-z]
+ * alpha	   [A-Za-z]
  * char            [\x0-\x7f]
  * octet           [\x0-\x1f\xff]
  * crlf            {cr}{lf}
@@ -104,11 +104,7 @@ lws             \x0d\x0a(\x20|\x09)*
  * matches following characters: (RFC 2616, Section 2.2)
  * ( ) < > @ , ; : \ " / [ ] ? = { } <space> <tab>
  */
-separators	[\(\)\<\>@\,;:\\\"\/\[\]?=\{\}\x20\x09]
-
-/* Matches a CTL*/
-ctl	[\x0-\x1f\x7f]
-
+separators	[\(\)\<\>@\,;:\\\"/\[\]?=\{\}\x20\x09]
 /*
  * (RFC 2616, Section 2.2)
  * This rule matches _ANY_ character _EXCEPT_ separators (see above),
@@ -119,14 +115,13 @@ ctl	[\x0-\x1f\x7f]
  * Note: A token can be detected as any combination of token characters.
  */
 token_char      [\x0-\x7f]{-}[\x0-\x1f\x7f]{-}[\{\}\(\)\<\>@\,;:\\\"/\[\]?=\x20\x09]
-
 %%
 %{
 /*
  * Actions
  *
  * yytext: yytext is the "string" that matches a certain rule. For example,
- *         in the first rule 1: slash, you get the string that matched
+ *         in the first rule 1: backslash, you get the string that matched
  *         (in this case "/") in yytext.
  *
  * yylval: yylval is a variable used to communicate matched value in lex to
@@ -134,108 +129,65 @@ token_char      [\x0-\x7f]{-}[\x0-\x1f\x7f]{-}[\{\}\(\)\<\>@\,;:\\\"/\[\]?=\x20\
  *         file for details.
  */
 %}
-
-"\\"	{
-	/* Rule 0: Backslash */
-
+"/"	{
+	/* Rule 1: Backslash */
 	LPRINTF("t:backslash; \n");
-
 	/* Copy character to yylval.i*/
 	yylval.i = yytext[0];
-
 	/*
 	 * This return statement lets terminates yylex() function and lets
-	 * yacc know that a slash was found!
+	 * yacc know that a backslash was found!
 	 */
 	return t_backslash;
 }
-
-"\/"	{
-	/* Rule 1: Slash */
-
-	LPRINTF("t:slash; \n");
-
-	/* Copy character to yylval.i*/
-	yylval.i = yytext[0];
-
-	/*
-	 * This return statement lets terminates yylex() function and lets
-	 * yacc know that a slash was found!
-	 */
-	return t_slash;
-}
-
 {crlf} {
 	/* Rule 2: CRLF */
-
 	LPRINTF("t:crlf; \n");
-
 	/*
 	 * No need to communicate the value of CRLF to yacc, so no
 	 * yylval here.
 	 */
-
 	return t_crlf;
 }
-
 {sp} {
 	/* Rule 3: Space */
-
 	LPRINTF("t:sp '%s'; \n", yytext);
-
 	yylval.i = yytext[0];
-
 	return t_sp;
 }
-
 {ws} {
 	/* Rule 4: A sequence of white spaces */
-
 	LPRINTF("t:ht; \n");
-
 	/* Very important to communicate the value here! */
 	strcpy(yylval.str, yytext);
-
 	return t_ws;
 }
-
 {digit} {
 	/* Rule 5: A digit */
-
 	LPRINTF("t:digit %d; \n", atoi(yytext));
-
 	yylval.i = atoi(yytext);
-
 	return t_digit;
 }
-
 "." {
 	/* Rule 6: A dot */
-
 	LPRINTF("t:dot; \n");
 	yylval.i = '.';
 	return t_dot;
 }
-
 {colon} {
 	/* Rule 7: A colon */
-
 	LPRINTF("t:colon; \n");
 	yylval.i = ':';
 	return t_colon;
 }
-
 {separators} {
 	/* Rule 8: A separator */
-
 	LPRINTF("t:separators \'%s\'\n", yytext);
 	yylval.i = yytext[0];
 	return t_separators;
 }
-
 {token_char} {
 	/* Rule 9: A character allowed in a token */
-
 	LPRINTF("t:token_char %s\n", yytext);
 	/*
 	 * Again, it is important to communicate the value back
@@ -244,20 +196,11 @@ token_char      [\x0-\x7f]{-}[\x0-\x1f\x7f]{-}[\{\}\(\)\<\>@\,;:\\\"/\[\]?=\x20\
 	yylval.i = yytext[0];
 	return t_token_char;
 }
-
 {lws} {
 	/* Rule 10: Linear white spaces */
-
 	LPRINTF("t:lws\n");
 	return t_lws;
 }
-
-{ctl} {
-	LPRINTF("t:ctl\n");
-	return t_ctl;
-}
-
 %%
-
 int yywrap(void) {
 return 0; }

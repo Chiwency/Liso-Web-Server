@@ -1,9 +1,10 @@
+
 SRC_DIR := src
 OBJ_DIR := obj
 # all src files
 SRC := $(wildcard $(SRC_DIR)/*.c)
 # all objects
-OBJ := $(OBJ_DIR)/y.tab.o $(OBJ_DIR)/lex.yy.o $(OBJ_DIR)/parse.o $(OBJ_DIR)/example.o
+OBJ := $(OBJ_DIR)/y.tab.o $(OBJ_DIR)/lex.yy.o $(OBJ_DIR)/parse.o $(OBJ_DIR)/example.o $(OBJ_DIR)/csapp.o $(OBJ_DIR)/handler.o
 # all binaries
 BIN := example echo_server echo_client
 # C compiler
@@ -11,7 +12,7 @@ CC  := gcc
 # C PreProcessor Flag
 CPPFLAGS := -Iinclude
 # compiler flags
-CFLAGS   := -g -Wall
+CFLAGS   := -g -w ##-Wall
 # DEPS = parse.h y.tab.h
 
 default: all

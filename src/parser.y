@@ -18,7 +18,7 @@
 #endif
 
 /* yyparse() calls yyerror() on error */
-void yyerror (const char *s);
+void yyerror (char *s);
 
 void set_parsing_options(char *buf, size_t siz, Request *parsing_request);
 
@@ -60,7 +60,6 @@ Request *parsing_request;
  */
 %token t_crlf
 %token t_backslash
-%token t_slash
 %token t_digit
 %token t_dot
 %token t_token_char
@@ -69,12 +68,10 @@ Request *parsing_request;
 %token t_separators
 %token t_sp
 %token t_ws
-%token t_ctl
 
 /* Type of value returned for these tokens */
 %type<str> t_crlf
 %type<i> t_backslash
-%type<i> t_slash
 %type<i> t_digit
 %type<i> t_dot
 %type<i> t_token_char
@@ -83,7 +80,6 @@ Request *parsing_request;
 %type<i> t_separators
 %type<i> t_sp
 %type<str> t_ws
-%type<i> t_ctl
 
 /*
  * Followed by this, you should have types defined for all the intermediate
@@ -126,10 +122,7 @@ allowed_char_for_token {
 }; |
 token allowed_char_for_token {
 	YPRINTF("token: Matched rule 2.\n");
-	memcpy($$, $1, strlen($1));
-	$$[strlen($1)] = $2;
-	$$[strlen($1) + 1] = 0;
-    // snprintf($$, 8192, "%s%c", $1, $2);
+  snprintf($$, 8192, "%s%c", $1, $2);
 };
 
 /*
@@ -160,7 +153,7 @@ t_separators {
 t_colon {
 	$$ = $1;
 }; |
-t_slash {
+t_backslash {
 	$$ = $1;
 };
 
@@ -174,11 +167,7 @@ text: allowed_char_for_text {
 }; |
 text ows allowed_char_for_text {
 	YPRINTF("text: Matched rule 2.\n");
-	memcpy($$, $1, strlen($1));
-	memcpy($$ + strlen($1), $2, strlen($2));
-	$$[strlen($1) + strlen($2)] = $3;
-	$$[strlen($1) + strlen($2) + 1] = 0;
-	// snprintf($$, 8192, "%s%s%c", $1, $2, $3);
+	snprintf($$, 8192, "%s%s%c", $1, $2, $3);
 };
 
 /*
@@ -199,26 +188,40 @@ t_ws {
 
 request_line: token t_sp text t_sp text t_crlf {
 	YPRINTF("request_Line:\n%s\n%s\n%s\n",$1, $3,$5);
-    strcpy(parsing_request->http_method, $1);
+  strcpy(parsing_request->http_method, $1);
 	strcpy(parsing_request->http_uri, $3);
 	strcpy(parsing_request->http_version, $5);
 }
 
 request_header: token ows t_colon ows text ows t_crlf {
 	YPRINTF("request_Header:\n%s\n%s\n",$1,$5);
-    strcpy(parsing_request->headers[parsing_request->header_count].header_name, $1);
+  strcpy(parsing_request->headers[parsing_request->header_count].header_name, $1);
 	strcpy(parsing_request->headers[parsing_request->header_count].header_value, $5);
 	parsing_request->header_count++;
+
+	// 如果不够空间了要重新分配空间
+	if(parsing_request->header_count == parsing_request->header_capacity)
+	{
+		parsing_request->header_capacity *= 2;
+		parsing_request->headers = (Request_header *)realloc(parsing_request->headers, sizeof(Request_header) * parsing_request->header_capacity);
+		if(parsing_request->headers == NULL)
+			fprintf(stderr, "Can not realloc\n");
+	}
 };
 
 
 /*
  * You need to fill this rule, and you are done! You have all the assembly
- * needed. You may wish to define your own rules. Please read RFC 2616.
- * All the best!
+ * needed. You may wish to define your own rules. Please read RFC 2616
+ * and the annotated excerpted text on the course website. All the best!
  *
  */
-request: request_line request_header t_crlf{
+
+// 制定规则，request_headers 可以为空
+request_headers: request_headers request_header {}
+          | {};
+
+request: request_line request_headers t_crlf{
 	YPRINTF("parsing_request: Matched Success.\n");
 	return SUCCESS;
 };
@@ -229,10 +232,10 @@ request: request_line request_header t_crlf{
 
 void set_parsing_options(char *buf, size_t siz, Request *request)
 {
-    parsing_buf = buf;
+  parsing_buf = buf;
 	parsing_offset = 0;
 	parsing_buf_siz = siz;
-    parsing_request = request;
+  parsing_request = request;
 }
 
-void yyerror (const char *s) {fprintf (stderr, "%s\n", s);}
+void yyerror (char *s) {fprintf (stderr, "%s\n", s);}

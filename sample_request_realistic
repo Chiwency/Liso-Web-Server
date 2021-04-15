@@ -1,4 +1,4 @@
-GET /~prs/15-441-F15/ HTTP/1.1
+SEWS /~prs/15-441-F15/ HTTP/1.1
 Host: www.cs.cmu.edu
 Connection: keep-alive
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
@@ -7,3 +7,4 @@ Accept-Encoding: gzip, deflate, sdch
 Accept-Language: en-US,en;q=0.8
 
 
+kojihuh
