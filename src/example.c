@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     struct sockaddr_storage clientaddr;
     fd_set read_fd_set;
     ConnectionPool *connPool;
-    tv.tv_sec = 5;
+    tv.tv_sec = 3;
     tv.tv_usec = 0;
     /* Check command line args */
     if (argc != 2)
@@ -33,7 +33,8 @@ int main(int argc, char **argv)
     {
         // select()会原地修改fd_set的值，所以每次调用要重新初始化
         read_fd_set = connPool->read_fds;
-        if (select(FD_SETSIZE, &read_fd_set, NULL, NULL, &tv) < 0)
+        int n;
+        if ((n = select(FD_SETSIZE, &read_fd_set, NULL, NULL, &tv)) < 0)
         {
             serverLog("Error", "Select Error in main");
             continue;
@@ -77,15 +78,25 @@ int main(int argc, char **argv)
                         connPool->client_fd[i]->body = NULL;
                         connPool->client_fd[i]->fd = i;
                     }
-                    if (handleClient(connPool->client_fd[i]) == 0)
+                    if (handleClient(connPool->client_fd[i]) == 0) // Time Out之后r=0 关闭所有闲置连接
                     {
                         close(i);
                         closed++;
+                        free(connPool->client_fd[i]);
                         connPool->client_fd[i] = NULL;
                         printf("close:%d\n", closed);
                         FD_CLR(i, &connPool->read_fds);
                     }
                 }
+            }
+            else if (n == 0 && connPool->client_fd[i]) // timeout时间内未收到数据，关闭连接池内的连接.
+            {
+                close(i);
+                closed++;
+                free(connPool->client_fd[i]);
+                connPool->client_fd[i] = NULL;
+                printf("close:%d\n", closed);
+                FD_CLR(i, &connPool->read_fds);
             }
         }
     }
@@ -96,19 +107,22 @@ int handleClient(Client *client)
 {
     char buf[MAXSIZE];
     memset(buf, 0, MAXSIZE);
-    int n = read(client->fd, buf, MAXSIZE);
-    if (!client->request)
+    read(client->fd, buf, MAXSIZE);
+    strcat(client->buf, buf);
+    while (1)
     {
+        if (client->request)
+        {
+            int code = Handle_Request(client);
+            if (code == 1)
+            {
+                return 1;
+            }
+        }
         char *p = NULL;
-        strcat(client->buf, buf);
         if (!(p = strstr(client->buf, "\r\n\r\n")))
         {
-            if (n <= 0)
-            {
-                clienterror(client->fd, NULL, STATUS_BAD_REQUEST, "Bad Request",
-                            "Bad Request, Please try again");
-                return 0;
-            }
+            // 没有读完请求首部，回去继续等待后续数据
             return 1;
         }
         p += 3;
@@ -125,13 +139,8 @@ int handleClient(Client *client)
         }
         p++;
         strcpy(buf, p);
-        strcpy(client->buf, buf);
+        strcpy(client->buf, buf); // 提取请求首部后，把后续数据再放入client->buf中
     }
-    if (Parse_Header(client))
-    {
-        return 1;
-    }
-    Serve_Request(client);
-    Free_Client(client);
+
     return 0;
 }

@@ -83,5 +83,5 @@ def check_correct_GET(host, port, version="1.1"):
     return error_reported, responses, status
 
 if __name__ == "__main__":
-    print check_correct_HEAD("127.0.0.1", 6799)
-    print check_correct_GET("127.0.0.1", 6799)
+    print check_correct_HEAD("127.0.0.1", 9999)
+    print check_correct_GET("127.0.0.1", 9999)

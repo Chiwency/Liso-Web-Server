@@ -13,7 +13,7 @@ import ssl
 # try a connection
 sock = socket.create_connection(('localhost', 4949))
 tls = ssl.wrap_socket(sock, cert_reqs=ssl.CERT_REQUIRED,
-                            ca_certs='../certs/signer.crt',
+                            ca_certs='../localhost.crt',
                             ssl_version=ssl.PROTOCOL_TLSv1)
 
 # what cert did he present?
@@ -28,7 +28,7 @@ tls.close()
 # try another connection!
 sock = socket.create_connection(('localhost', 4949))
 tls = ssl.wrap_socket(sock, cert_reqs=ssl.CERT_REQUIRED,
-                            ca_certs='../certs/signer.crt',
+                            ca_certs='../localhost.crt',
                             ssl_version=ssl.PROTOCOL_TLSv1)
 
 tls.sendall('this is a test message!!!')

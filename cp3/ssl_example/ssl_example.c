@@ -12,7 +12,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <sys/socket.h>
-
+#include <string.h>
 #include <openssl/ssl.h>
 
 #define ECHO_PORT 4949
@@ -28,7 +28,7 @@ int close_socket(int sock)
     return 0;
 }
 
-int main(char* argv[], int argc)
+int main(int argc, char **argv)
 {
 
     /************ VARIABLE DECLARATIONS ************/
@@ -43,8 +43,8 @@ int main(char* argv[], int argc)
     /************ SSL INIT ************/
     SSL_load_error_strings();
     SSL_library_init();
-	
-	/* The code originally uses TLSv1_server_method(), but it is marked as
+
+    /* The code originally uses TLSv1_server_method(), but it is marked as
 	   deprecated for openssl>=1.1.0, if you want to use the version-specific
 	   method, make sure to turn of error and warnings in your Makefile */
     if ((ssl_context = SSL_CTX_new(TLS_server_method())) == NULL)
@@ -54,7 +54,7 @@ int main(char* argv[], int argc)
     }
 
     /* register private key */
-    if (SSL_CTX_use_PrivateKey_file(ssl_context, "../private/wolf.key",
+    if (SSL_CTX_use_PrivateKey_file(ssl_context, "../localhost.key",
                                     SSL_FILETYPE_PEM) == 0)
     {
         SSL_CTX_free(ssl_context);
@@ -63,7 +63,7 @@ int main(char* argv[], int argc)
     }
 
     /* register public key (certificate) */
-    if (SSL_CTX_use_certificate_file(ssl_context, "../certs/wolf.crt",
+    if (SSL_CTX_use_certificate_file(ssl_context, "../localhost.crt",
                                      SSL_FILETYPE_PEM) == 0)
     {
         SSL_CTX_free(ssl_context);
@@ -84,7 +84,7 @@ int main(char* argv[], int argc)
     addr.sin_port = htons(ECHO_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)))
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
     {
         close_socket(sock);
         SSL_CTX_free(ssl_context);
@@ -105,8 +105,8 @@ int main(char* argv[], int argc)
     while (1)
     {
         cli_size = sizeof(cli_addr);
-        if ((client_sock = accept(sock, (struct sockaddr *) &cli_addr,
-             &cli_size)) == -1)
+        if ((client_sock = accept(sock, (struct sockaddr *)&cli_addr,
+                                  &cli_size)) == -1)
         {
             close(sock);
             SSL_CTX_free(ssl_context);
@@ -130,7 +130,7 @@ int main(char* argv[], int argc)
             SSL_CTX_free(ssl_context);
             fprintf(stderr, "Error creating client SSL context.\n");
             return EXIT_FAILURE;
-        }  
+        }
 
         if (SSL_accept(client_context) <= 0)
         {
@@ -144,7 +144,7 @@ int main(char* argv[], int argc)
 
         readret = 0;
 
-        while((readret = SSL_read(client_context, buf, BUF_SIZE)) > 0)
+        while ((readret = SSL_read(client_context, buf, BUF_SIZE)) > 0)
         {
             if (SSL_write(client_context, buf, readret) != readret)
             {
@@ -157,7 +157,7 @@ int main(char* argv[], int argc)
                 return EXIT_FAILURE;
             }
             memset(buf, 0, BUF_SIZE);
-        } 
+        }
 
         if (readret < 0)
         {
@@ -181,7 +181,6 @@ int main(char* argv[], int argc)
         }
     }
     /************ END SINGLE CLIENT ECHO LOOP ************/
-
 
     SSL_CTX_free(ssl_context);
     close_socket(sock);

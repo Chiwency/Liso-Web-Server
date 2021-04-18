@@ -26,6 +26,10 @@ void Send_Ressponse(int fd, char *errnum,
     /* Print the HTTP response headers */
     sprintf(buf, "HTTP/1.1 %s %s\r\n", errnum, shortmsg);
     Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Connection: %s\r\n", "keep-alive");
+    Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Content-Length: %d\r\n", 0);
+    Rio_writen(fd, buf, strlen(buf));
     sprintf(buf, "Content-type: text/html\r\n\r\n");
     Rio_writen(fd, buf, strlen(buf));
 }
@@ -34,26 +38,30 @@ void clienterror(int fd, char *cause, char *errnum,
                  char *shortmsg, char *longmsg)
 {
     char buf[MAXLINE];
-
+    //    int n = 114 + strlen(cause) + strlen(errnum) + strlen(shortmsg) + strlen(longmsg);
     /* Print the HTTP response headers */
     sprintf(buf, "HTTP/1.1 %s %s\r\n", errnum, shortmsg);
+    Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Connection: %s\r\n", "keep-alive");
+    Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Content-Length: %d\r\n", 0);
     Rio_writen(fd, buf, strlen(buf));
     sprintf(buf, "Content-type: text/html\r\n\r\n");
     Rio_writen(fd, buf, strlen(buf));
 
-    /* Print the HTTP response body */
-    sprintf(buf, "<html><title>Liso Server Error</title>");
-    Rio_writen(fd, buf, strlen(buf));
-    sprintf(buf, "<body bgcolor="
-                 "ffffff"
-                 ">\r\n");
-    Rio_writen(fd, buf, strlen(buf));
-    sprintf(buf, "%s: %s\r\n", errnum, shortmsg);
-    Rio_writen(fd, buf, strlen(buf));
-    sprintf(buf, "<p>%s: %s\r\n", longmsg, cause);
-    Rio_writen(fd, buf, strlen(buf));
-    sprintf(buf, "<hr><em>The Liso Web server</em>\r\n");
-    Rio_writen(fd, buf, strlen(buf));
+    // /* Print the HTTP response body */
+    // sprintf(buf, "<html><title>Liso Server Error</title>");
+    // Rio_writen(fd, buf, strlen(buf));
+    // sprintf(buf, "<body bgcolor="
+    //              "ffffff"
+    //              ">\r\n");
+    // Rio_writen(fd, buf, strlen(buf));
+    // sprintf(buf, "%s: %s\r\n", errnum, shortmsg);
+    // Rio_writen(fd, buf, strlen(buf));
+    // sprintf(buf, "<p>%s: %s\r\n", longmsg, cause);
+    // Rio_writen(fd, buf, strlen(buf));
+    // sprintf(buf, "<hr><em>The Liso Web server</em>\r\n");
+    // Rio_writen(fd, buf, strlen(buf));
 }
 
 ConnectionPool *Init_Connection_Pool(int fd)
@@ -64,22 +72,20 @@ ConnectionPool *Init_Connection_Pool(int fd)
     return connectionPool;
 }
 
-void Free_Client(Client *client)
+void Free_Request(Client *client)
 {
     free(client->request->headers);
+    //   memset(client->request->http_uri, 0, 4096);
     client->request->headers = NULL;
     free(client->request);
     client->request = NULL;
     free(client->body);
     client->body = NULL;
-    free(client);
-    client = NULL;
     return;
 }
 
-int Parse_Header(Client *client)
+int Handle_Request(Client *client)
 {
-
     Request *req = client->request;
     int fd = client->fd;
     if (!client->body)
@@ -91,34 +97,28 @@ int Parse_Header(Client *client)
             if (!strcmp(header->header_name, "Content-Length"))
             {
                 sscanf(header->header_value, "%d", &len);
-                printf("len:%d\n", len);
                 break;
             }
         }
         client->body = (char *)malloc(sizeof(char) * (len + 1));
         client->body[0] = '\0';
-        strcpy(client->body, client->buf);
     }
-    else
+    int n = sizeof(*client->body) - strlen(client->body) - 1;
+    if (n > 0)
     {
-        memset(client->buf, 0, MAXSIZE);
-        int n = read(fd, client->buf, MAXSIZE);
-        n += strlen(client->body);
-
-        //  这一段还没测
-
-        if (n <= sizeof(client->body))
+        if (strlen(client->buf) >= n)
         {
-            strcat(client->body, client->buf);
-            if (strlen(client->body) + 1 != sizeof(client->body))
-            {
-                return 1;
-            }
+            strncat(client->body, client->buf, n);
+            char *p = client->buf + n;
+            char buf[MAXSIZE];
+            strcpy(buf, p);
+            strcpy(client->buf, buf);
         }
         else
         {
-            clienterror(fd, NULL, STATUS_BAD_REQUEST, "Out Of Length",
-                        "Body Length Too Long");
+            strcat(client->body, client->buf);
+            memset(client->buf, 0, MAXSIZE);
+            return 1; // 1表示要回去继续等待读数据
         }
     }
 
@@ -128,10 +128,12 @@ int Parse_Header(Client *client)
     {
         clienterror(fd, req->http_method, STATUS_NOT_IMPLIMENT, "Not Implemented",
                     "Liso web server does not implement this method");
-        Free_Client(client);
-        client = NULL;
+        // 处理完每个请求后要把body释放
+        Free_Request(client);
         return 0;
     }
+    Serve_Request(client);
+    Free_Request(client);
     return 0;
 }
 
@@ -159,11 +161,11 @@ void Serve_Request(Client *client)
         return;
     }
     char filename[500];
+    memset(filename, 0, 500);
     struct stat sbuf;
     //strcpy(filename, "../");
     char *p = strchr(client->request->http_uri, '/');
     strcat(filename, p + 1);
-
     if (stat(filename, &sbuf) < 0)
     {
         clienterror(fd, filename, STATUS_NOT_FOUND, "Not found",
@@ -191,7 +193,9 @@ void Serve_Request(Client *client)
     Rio_writen(fd, buf, strlen(buf));
     sprintf(buf, "Content-type: %s\r\n", filetype);
     Rio_writen(fd, buf, strlen(buf));
-    sprintf(buf, "Last-Modified: %s\r\n\r\n", timeChar);
+    sprintf(buf, "Last-Modified: %s\r\n", timeChar);
+    Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Connection: %s\r\n\r\n", "keep-alive");
     Rio_writen(fd, buf, strlen(buf));
     if (!strcmp(method, "HEAD"))
     {

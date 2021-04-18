@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # Required
@@ -13,7 +14,7 @@ organizationalunit=Student
 email=staff-441@cs.cmu.edu
 
 # Optional
-password=dummypassword
+password=13317000892
 
 if [ -z "$domain" ]
 then

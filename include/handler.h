@@ -10,7 +10,7 @@
 #define STATUS_NOT_IMPLIMENT "501"
 #define STATUS_VERSION_NOT_SUPPPORTED "505"
 
-#define MAXSIZE 8192
+#define MAXSIZE 88000
 
 typedef struct
 {
@@ -27,8 +27,10 @@ typedef struct
     Client *client_fd[FD_SETSIZE];
 } ConnectionPool;
 
-int Parse_Header(Client *client);
-void Free_Client(Client *client);
+int Handle_Request(Client *client);
+
+void Free_Request(Client *client);
+
 void Send_Ressponse(int fd, char *errnum,
                     char *shortmsg, char *body);
 void clienterror(int fd, char *cause, char *errnum,
