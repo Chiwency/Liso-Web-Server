@@ -49,15 +49,16 @@ int daemonize(char* lock_file)
         if (pid < 0) exit(EXIT_FAILURE);
         if (pid > 0) exit(EXIT_SUCCESS);
 
-        setsid();
+        setsid();   // 创建一个新的session
 
+        // 关掉所有文件描述符
         for (i = getdtablesize(); i>=0; i--)
                 close(i);
 
         i = open("/dev/null", O_RDWR);
-        dup(i); /* stdout */
+        dup(i); /* stdout */   // 用最小可用的文件描述符替换前面的i，1就是标注输出
         dup(i); /* stderr */
-        umask(027);
+        umask(027); 
 
         lfp = open(lock_file, O_RDWR|O_CREAT, 0640);
         

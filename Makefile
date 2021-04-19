@@ -4,9 +4,9 @@ OBJ_DIR := obj
 # all src files
 SRC := $(wildcard $(SRC_DIR)/*.c)
 # all objects
-OBJ := $(OBJ_DIR)/y.tab.o $(OBJ_DIR)/lex.yy.o $(OBJ_DIR)/parse.o $(OBJ_DIR)/example.o $(OBJ_DIR)/csapp.o $(OBJ_DIR)/handler.o
+OBJ := $(OBJ_DIR)/y.tab.o $(OBJ_DIR)/lex.yy.o $(OBJ_DIR)/parse.o $(OBJ_DIR)/lisod.o $(OBJ_DIR)/csapp.o $(OBJ_DIR)/handler.o
 # all binaries
-BIN := example echo_server echo_client
+BIN := lisod echo_server echo_client
 # C compiler
 CC  := gcc
 # C PreProcessor Flag
@@ -16,10 +16,10 @@ CFLAGS   := -g -w ##-Wall
 # DEPS = parse.h y.tab.h
 
 default: all
-all : example echo_server echo_client
+all : lisod echo_server echo_client
 
-example: $(OBJ)
-	$(CC) $^ -o $@
+lisod: $(OBJ)
+	$(CC) $^ -o ssl -lssl -o $@ 
 
 $(SRC_DIR)/lex.yy.c: $(SRC_DIR)/lexer.l
 	flex -o $@ $^
